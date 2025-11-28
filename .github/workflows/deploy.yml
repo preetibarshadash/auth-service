@@ -1,0 +1,49 @@
+name: CI/CD to k3s on EC2 (Amazon Linux)
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/auth-service:${{ github.sha }} .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/auth-service:${{ github.sha }}
+
+      - name: Save kubeconfig
+        run: |
+          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 --decode > kubeconfig
+
+      - name: Copy YAMLs to EC2
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "k8s/*"
+          target: "/home/ec2-user/k8s/"
+
+      - name: Deploy to k3s
+        uses: appleboy/ssh-action@v0.1.9
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_SSH_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            export KUBECONFIG=/home/ec2-user/kubeconfig
+            sed -i "s|DOCKER_IMAGE|${{ secrets.DOCKERHUB_USERNAME }}/auth-service:${{ github.sha }}|g" /home/ec2-user/k8s/deployment.yaml
+            kubectl apply -f /home/ec2-user/k8s/deployment.yaml
+            kubectl apply -f /home/ec2-user/k8s/service.yaml
