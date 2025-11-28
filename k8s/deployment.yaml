@@ -31,23 +31,29 @@ jobs:
         run: |
           echo "${{ secrets.KUBECONFIG_DATA }}" | base64 --decode > kubeconfig
 
-      # 5️⃣ Copy Kubernetes YAMLs to EC2
+      # 5️⃣ Prepare SSH key for Actions
+      - name: Prepare SSH key
+        run: |
+          echo -e "${{ secrets.EC2_SSH_KEY }}" > /tmp/id_rsa
+          chmod 600 /tmp/id_rsa
+
+      # 6️⃣ Copy Kubernetes YAMLs to EC2
       - name: Copy YAMLs to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}       # use your GitHub secret EC2_USER
-          key: ${{ secrets.EC2_SSH_KEY }}        # private key secret
+          username: ${{ secrets.EC2_USER }}
+          key: /tmp/id_rsa
           source: "k8s/*"
           target: "/home/ec2-user/k8s/"
 
-      # 6️⃣ Deploy to k3s on EC2
+      # 7️⃣ Deploy to k3s on EC2
       - name: Deploy to k3s
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}       # use same secret
-          key: ${{ secrets.EC2_SSH_KEY }}
+          username: ${{ secrets.EC2_USER }}
+          key: /tmp/id_rsa
           script: |
             export KUBECONFIG=/home/ec2-user/kubeconfig
             sed -i "s|DOCKER_IMAGE|${{ secrets.DOCKERHUB_USERNAME }}/auth-service:${{ github.sha }}|g" /home/ec2-user/k8s/deployment.yaml
