@@ -34,10 +34,21 @@ jobs:
       # 5️⃣ Prepare SSH key for Actions
       - name: Prepare SSH key
         run: |
+          # Convert the single-line escaped GitHub secret back into a proper key file
           echo -e "${{ secrets.EC2_SSH_KEY }}" > /tmp/id_rsa
           chmod 600 /tmp/id_rsa
 
-      # 6️⃣ Copy Kubernetes YAMLs to EC2
+      # 6️⃣ Test SSH connectivity (optional but recommended)
+      - name: Test SSH connection
+        uses: appleboy/ssh-action@v0.1.9
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: /tmp/id_rsa
+          script: whoami
+          debug: true
+
+      # 7️⃣ Copy Kubernetes YAMLs to EC2
       - name: Copy YAMLs to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
@@ -47,7 +58,7 @@ jobs:
           source: "k8s/*"
           target: "/home/ec2-user/k8s/"
 
-      # 7️⃣ Deploy to k3s on EC2
+      # 8️⃣ Deploy to k3s on EC2
       - name: Deploy to k3s
         uses: appleboy/ssh-action@v0.1.9
         with:
