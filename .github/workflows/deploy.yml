@@ -26,24 +26,25 @@ jobs:
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/auth-service:${{ github.sha }} .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/auth-service:${{ github.sha }}
 
-      # 4️⃣ Save kubeconfig to file
+      # 4️⃣ Save kubeconfig to file (optional)
       - name: Save kubeconfig
         run: |
           echo "${{ secrets.KUBECONFIG_DATA }}" | base64 --decode > kubeconfig
 
-      # 5️⃣ Prepare SSH key (base64 encoded)
+      # 5️⃣ Prepare SSH key (multiline)
       - name: Prepare SSH key
         run: |
-          echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 --decode > /tmp/id_rsa
-          chmod 600 /tmp/id_rsa
+          mkdir -p /tmp/ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/ssh/id_rsa
+          chmod 600 /tmp/ssh/id_rsa
 
       # 6️⃣ Test SSH connectivity
       - name: Test SSH connection
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: /tmp/id_rsa
+          username: ec2-user
+          key: /tmp/ssh/id_rsa
           script: whoami
           debug: true
 
@@ -52,8 +53,8 @@ jobs:
         uses: appleboy/scp-action@v0.1.4
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: /tmp/id_rsa
+          username: ec2-user
+          key: /tmp/ssh/id_rsa
           source: "k8s/*"
           target: "/home/ec2-user/k8s/"
 
@@ -62,8 +63,8 @@ jobs:
         uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: /tmp/id_rsa
+          username: ec2-user
+          key: /tmp/ssh/id_rsa
           script: |
             export KUBECONFIG=/home/ec2-user/kubeconfig
             sed -i "s|DOCKER_IMAGE|${{ secrets.DOCKERHUB_USERNAME }}/auth-service:${{ github.sha }}|g" /home/ec2-user/k8s/deployment.yaml

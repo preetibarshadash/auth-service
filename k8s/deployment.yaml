@@ -19,6 +19,3 @@ spec:
           image: DOCKER_IMAGE
           ports:
             - containerPort: 8081
-          env:
-            - name: ENVIRONMENT
-              value: "production"
