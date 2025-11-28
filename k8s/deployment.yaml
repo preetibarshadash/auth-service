@@ -29,10 +29,10 @@ jobs:
 
       - name: Prepare SSH key
         run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/id_rsa
+          cat <<EOF > /tmp/id_rsa
+          ${{ secrets.EC2_SSH_KEY }}
+          EOF
           chmod 600 /tmp/id_rsa
-          # Optional: verify key
-          ssh-keygen -lf /tmp/id_rsa
 
       - name: Test SSH connection
         uses: appleboy/ssh-action@v0.1.9
